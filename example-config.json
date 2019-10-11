@@ -1,0 +1,27 @@
+{
+    "platform": "homebridge-plex.Plex",
+    "sensors": [
+        {
+            "name": "Plex Playing"
+        },
+        {
+            "name": "Plex - TV Show Playing",
+            "users": ["eliottrobson"],
+            "players": ["Bedroom TV"],
+            "types": ["episode"]
+        },
+        {
+            "name": "Plex - Movie Playing",
+            "users": ["eliottrobson"],
+            "players": ["Bedroom TV"],
+            "types": ["movie"]
+        },
+        {
+            "name": "Plex - Music Playing",
+            "users": ["eliottrobson"],
+            "players": ["Bedroom TV"],
+            "types": ["track"],
+            "delay": 1000
+        }
+    ]
+}
