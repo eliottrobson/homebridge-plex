@@ -1,4 +1,4 @@
-# Homebridge MacOS
+# Homebridge Plex
 Homebridge plugin to track Plex webhook events (play / pause / stop)
 
 # Installation
