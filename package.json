@@ -1,5 +1,5 @@
 {
-  "name": "homebridge-plex",
+  "name": "homebridge-plex-webhooks",
   "version": "0.0.1",
   "description": "Homebridge plugin to track Plex webhook events",
   "main": "index.js",

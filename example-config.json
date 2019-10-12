@@ -1,5 +1,5 @@
 {
-    "platform": "homebridge-plex.Plex",
+    "platform": "homebridge-plex-webhooks.Plex",
     "sensors": [
         {
             "name": "Plex Playing"
@@ -14,7 +14,7 @@
             "name": "Plex - Movie Playing",
             "users": ["eliottrobson"],
             "players": ["Bedroom TV"],
-            "types": ["movie"]
+            "types": ["movie", "clip"]
         },
         {
             "name": "Plex - Music Playing",

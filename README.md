@@ -3,45 +3,60 @@ Homebridge plugin to track Plex webhook events (play / pause / stop)
 
 # Installation
 
-Install the plugin
+## Install the plugin
 ```
-npm config set registry "https://npm.pkg.github.com"
-sudo npm install @eliottrobson/homebridge-plex -g
+sudo npm install @eliottrobson/homebridge-plex -g --registry "https://npm.pkg.github.com"
 ln -s /usr/local/lib/node_modules/@eliottrobson/homebridge-plex /usr/local/lib/node_modules/homebridge-plex-@eliottrobson
 ```
 
-Configure in homebridge config
+## Configure in homebridge config
 ```
 {
-    "platform": "homebridge-plex.Plex",
+    "platform": "homebridge-plex-webhooks.Plex",
     "sensors": [
         {
             "name": "Plex Playing"
         },
         {
             "name": "Plex - TV Show Playing",
-            "media": ["episode"],
+            "users": ["eliottrobson"],
             "players": ["Bedroom TV"],
-            "users": ["eliottrobson"]
+            "types": ["episode"]
         },
         {
             "name": "Plex - Movie Playing",
-            "media": ["movie"],
+            "users": ["eliottrobson"],
             "players": ["Bedroom TV"],
-            "users": ["eliottrobson"]
+            "types": ["movie", "clip"]
+        },
+        {
+            "name": "Plex - Music Playing",
+            "users": ["eliottrobson"],
+            "players": ["Bedroom TV"],
+            "types": ["track"],
+            "delay": 1000
         }
-    ],
-    "port": 32512
+    ]
 }
 ```
 
-Setting up plex
+## Setting up plex
 
 You will need plex pass in order to add the webhook to your Plex account, first visit the following url:
 
 https://app.plex.tv/desktop#!/settings/webhooks
 
 Click "ADD WEBHOOK" and enter the url of the homebridge server with port 32512 (this can be changed in settings). (Example: http://192.168.86.100:32512).
+
+## Setup Homekit
+
+The device will show as a plug. This is because plugs have 2 states and can very easily be added into homekit automations.
+
+Outlet State | In Use State | Plex State
+------------ | ------------ | ----------
+`ON` | `ON` | `PLAYING`
+`ON` | `OFF` | `PAUSED`
+`OFF` | `OFF` | `STOPPED`
 
 # Config
 Variable | Description

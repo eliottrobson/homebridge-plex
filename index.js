@@ -2,7 +2,7 @@ const http = require('http');
 
 let Accessory, Characteristic, Service, UUIDGen;
 
-const pluginName = "homebridge-plex";
+const pluginName = "homebridge-plex-webhooks";
 const platformName = "Plex";
 
 module.exports = function(homebridge) {
@@ -15,18 +15,17 @@ module.exports = function(homebridge) {
 };
 
 function Plex(log, config, api) {
-	if (!config) {
-        log.warn("Ignoring homebridge-plex because it is not configured");
-        this.disabled = true;
-        return;
-	}
-
 	// Setup dependencies
 	this.log = log;
 	this.api = api;
 	this.accessories = {};
-	this.sensors = config["sensors"];
+	this.sensors = config["sensors"] || [];
 	this.port = config["port"] || 32512;
+
+	if (!config) {
+		log.warn("Ignoring homebridge-plex because it is not configured");
+        return;
+	}	
 
 	this.delays = {};
 
@@ -50,19 +49,32 @@ function Plex(log, config, api) {
 				
 				// Register the accessory with Homebridge
 				self.api.registerPlatformAccessories(pluginName, platformName, [ accessory ]);
+			} else {
+				self.log("Updating '" + sensor.name + "' sensor.");
 			}
 	
 			// Add information to the new accessory
 			var informationService = sensor.accessory.getService(Service.AccessoryInformation);
 	
 			informationService
-			  .setCharacteristic(Characteristic.Manufacturer, "Homebridge Sensors for Plex")
-			  .setCharacteristic(Characteristic.Model, "Plex Sensor")
-			  .setCharacteristic(Characteristic.SerialNumber, sensor.name)
-			  .setCharacteristic(Characteristic.On, false)
-			  .setCharacteristic(Characteristic.OutletInUse, false);
-	
-			  sensor.activePlayers = new Set();
+				.setCharacteristic(Characteristic.Manufacturer, "Homebridge Sensors for Plex")
+				.setCharacteristic(Characteristic.Model, "Plex Sensor")
+				.setCharacteristic(Characteristic.SerialNumber, sensor.name);
+
+			sensor.service
+				.getCharacteristic(Characteristic.On)
+				.on("get", function(callback) {
+					callback(sensor.isOn);
+				});
+		
+			sensor.service
+				.getCharacteristic(Characteristic.OutletInUse)
+				.on("get", function(callback) {
+					callback(sensor.isPlaying);
+				});
+
+			// Setup sensor	
+			self.setupSensor(sensor);
 		}
 		
         self.appBeginListening();
@@ -71,16 +83,35 @@ function Plex(log, config, api) {
 
 // Invoked when homebridge tries to restore cached accessory
 Plex.prototype.configureAccessory = function(accessory) {
-    this.log("Configuring '" + accessory.displayName + "' sensor.");
-    this.accessories[accessory.UUID] = accessory;
+	var foundAccessory = false;
 
 	for (var sensor of this.sensors) {
 		if (accessory.services[1].displayName == sensor.name) {
+			foundAccessory = true;
+			this.log("Configuring '" + accessory.displayName + "' sensor.");
+
+			this.accessories[accessory.UUID] = accessory;
+
 			sensor.accessory = accessory;
 			sensor.service = accessory.services[1];
-			sensor.activePlayers = new Set();
+
+			this.setupSensor(sensor);
 		}
 	}
+
+	if (!foundAccessory) {
+		this.log("Removing '" + accessory.displayName + "' sensor.");
+		this.api.unregisterPlatformAccessories(pluginName, platformName, [ accessory ]);
+	}
+}
+
+Plex.prototype.setupSensor = function(sensor) {
+	sensor.isOn = false;
+	sensor.isPlaying = false;
+	sensor.activePlayers = new Set();
+
+	sensor.service.getCharacteristic(Characteristic.On).updateValue(sensor.isOn);
+	sensor.service.getCharacteristic(Characteristic.OutletInUse).updateValue(sensor.isPlaying);
 }
 
 Plex.prototype.appBeginListening = function() {
@@ -115,7 +146,7 @@ Plex.prototype.appBeginListening = function() {
     });
     
     this.server.listen(this.port, function(){
-        self.log("Homebridge Plex listening for on: http://<homebridge_ip>:%s", self.port);
+        self.log("Homebridge Plex listening for webhooks at: http://<homebridge_ip>:%s", self.port);
     });
 }
 
@@ -166,6 +197,9 @@ Plex.prototype.eventHandler = function(event, sensor) {
 		sensor.activePlayers.add(event.Player.uuid);
 
 		this.log("Updating playing state: PLAYING");
+
+		sensor.isOn = true;
+		sensor.isPlaying = true;
 		sensor.service.getCharacteristic(Characteristic.On).updateValue(true);
 		sensor.service.getCharacteristic(Characteristic.OutletInUse).updateValue(true);
 	} else if (event.event == "media.pause") {
@@ -175,6 +209,9 @@ Plex.prototype.eventHandler = function(event, sensor) {
 		// If there are no other players currently active we can process the pause event
 		if (sensor.activePlayers.size == 0) {
 			this.log("Updating playing state: PAUSED");
+
+			sensor.isOn = true;
+			sensor.isPlaying = false;
 			sensor.service.getCharacteristic(Characteristic.On).updateValue(true);
 			sensor.service.getCharacteristic(Characteristic.OutletInUse).updateValue(false);
 		}
@@ -191,6 +228,9 @@ Plex.prototype.eventHandler = function(event, sensor) {
 
 			let triggerOff = (function() {
 				this.log("Updating playing state: STOPPED");
+
+				sensor.isOn = false;
+				sensor.isPlaying = false;
 				sensor.service.getCharacteristic(Characteristic.On).updateValue(false);
 				sensor.service.getCharacteristic(Characteristic.OutletInUse).updateValue(false);
 			}).bind(this)
