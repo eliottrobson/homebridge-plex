@@ -5,8 +5,8 @@ Homebridge plugin to track Plex webhook events (play / pause / stop)
 
 ## Install the plugin
 ```
-sudo npm install @eliottrobson/homebridge-plex -g --registry "https://npm.pkg.github.com"
-ln -s /usr/local/lib/node_modules/@eliottrobson/homebridge-plex /usr/local/lib/node_modules/homebridge-plex-@eliottrobson
+sudo npm install @eliottrobson/homebridge-plex-webhooks -g --registry "https://npm.pkg.github.com"
+ln -s /usr/local/lib/node_modules/@eliottrobson/homebridge-plex-webhooks /usr/local/lib/node_modules/homebridge-plex-webhooks-@eliottrobson
 ```
 
 ## Configure in homebridge config
