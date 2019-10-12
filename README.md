@@ -7,7 +7,7 @@ Install the plugin
 ```
 npm config set registry "https://npm.pkg.github.com"
 sudo npm install @eliottrobson/homebridge-plex -g
-ln -s /usr/local/lib/node_modules/@eliottrobson/homebridge-plex /usr/local/lib/node_modules/homebridge-@eliottrobson-plex
+ln -s /usr/local/lib/node_modules/@eliottrobson/homebridge-plex /usr/local/lib/node_modules/homebridge-plex-@eliottrobson
 ```
 
 Configure in homebridge config
