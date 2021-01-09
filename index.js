@@ -40,38 +40,38 @@ function Plex(log, config, api) {
 				self.log("Adding '" + sensor.name + "' sensor.");
 	
 				// Create the accessory for the occupancy sensor
-				var accessory = new Accessory(sensor.name, uuid);
-				var service = accessory.addService(Service.Outlet, sensor.name);
+				var accessoryOn = new Accessory(sensor.name + " - On", UUIDGen.generate(sensor.name + " - On"));
+				var serviceOn = accessoryOn.addService(Service.OccupancySensor, sensor.name + " - On");
 				
-				self.accessories[uuid] = accessory;
-				sensor.accessory = accessory;
-				sensor.service = service;
+				var accessoryPlaying = new Accessory(sensor.name + " - Playing", UUIDGen.generate(sensor.name + " - Playing"));
+				var servicePlaying = accessoryPlaying.addService(Service.OccupancySensor, sensor.name + " - Playing");
+
+				self.accessories[uuid] = { accessoryOn: accessoryOn, accessoryPlaying: accessoryPlaying };
+				sensor.accessoryOn = accessoryOn;
+				sensor.accessoryPlaying = accessoryPlaying;
+				sensor.serviceOn = serviceOn;
+				sensor.servicePlaying = servicePlaying;
 				
 				// Register the accessory with Homebridge
-				self.api.registerPlatformAccessories(pluginName, platformName, [ accessory ]);
+				self.api.registerPlatformAccessories(pluginName, platformName, [ accessoryOn, accessoryPlaying ]);
 			} else {
 				self.log("Updating '" + sensor.name + "' sensor.");
 			}
 	
 			// Add information to the new accessory
-			var informationService = sensor.accessory.getService(Service.AccessoryInformation);
+			var informationServiceOn = sensor.accessoryOn.getService(Service.AccessoryInformation);
 	
-			informationService
+			informationServiceOn
 				.setCharacteristic(Characteristic.Manufacturer, "Homebridge Sensors for Plex")
-				.setCharacteristic(Characteristic.Model, "Plex Sensor")
+				.setCharacteristic(Characteristic.Model, "Plex Sensor (On)")
 				.setCharacteristic(Characteristic.SerialNumber, sensor.name);
 
-			sensor.service
-				.getCharacteristic(Characteristic.On)
-				.on("get", function(callback) {
-					callback(sensor.isOn);
-				});
-		
-			sensor.service
-				.getCharacteristic(Characteristic.OutletInUse)
-				.on("get", function(callback) {
-					callback(sensor.isPlaying);
-				});
+			var informationServicePlaying = sensor.accessoryPlaying.getService(Service.AccessoryInformation);
+	
+			informationServicePlaying
+				.setCharacteristic(Characteristic.Manufacturer, "Homebridge Sensors for Plex")
+				.setCharacteristic(Characteristic.Model, "Plex Sensor (Playing)")
+				.setCharacteristic(Characteristic.SerialNumber, sensor.name);
 
 			// Setup sensor	
 			self.setupSensor(sensor);
@@ -83,23 +83,45 @@ function Plex(log, config, api) {
 
 // Invoked when homebridge tries to restore cached accessory
 Plex.prototype.configureAccessory = function(accessory) {
-	var foundAccessory = false;
+	var foundOnAccessory = false;
+	var foundPlayingAccessory = false;
 
 	for (var sensor of this.sensors) {
-		if (accessory.services[1].displayName == sensor.name) {
-			foundAccessory = true;
+		if (accessory.services[1].displayName == sensor.name + " - On") {
+			foundOnAccessory = true;
 			this.log("Configuring '" + accessory.displayName + "' sensor.");
 
-			this.accessories[accessory.UUID] = accessory;
+			if (!this.accessories[accessory.UUID]) {
+				this.accessories[accessory.UUID] = {};
+			}
 
-			sensor.accessory = accessory;
-			sensor.service = accessory.services[1];
+			this.accessories[accessory.UUID].accessoryOn = accessory;
 
-			this.setupSensor(sensor);
+			sensor.accessoryOn = accessory;
+			sensor.serviceOn = accessory.services[1];
+
+			if (foundOnAccessory && foundPlayingAccessory) {
+				this.setupSensor(sensor);
+			}
+		} else if (accessory.services[1].displayName == sensor.name + " - Playing") {
+			foundOnAccessory = true;
+			this.log("Configuring '" + accessory.displayName + "' sensor.");
+
+			if (!this.accessories[accessory.UUID])
+				this.accessories[accessory.UUID] = {};
+
+			this.accessories[accessory.UUID].accessoryPlaying = accessory;
+
+			sensor.accessoryPlaying = accessory;
+			sensor.servicePlaying = accessory.services[1];
+
+			if (foundOnAccessory && foundPlayingAccessory) {
+				this.setupSensor(sensor);
+			}
 		}
 	}
 
-	if (!foundAccessory) {
+	if (!foundOnAccessory && !foundPlayingAccessory) {
 		this.log("Removing '" + accessory.displayName + "' sensor.");
 		this.api.unregisterPlatformAccessories(pluginName, platformName, [ accessory ]);
 	}
@@ -110,8 +132,8 @@ Plex.prototype.setupSensor = function(sensor) {
 	sensor.isPlaying = false;
 	sensor.activePlayers = new Set();
 
-	sensor.service.getCharacteristic(Characteristic.On).updateValue(sensor.isOn);
-	sensor.service.getCharacteristic(Characteristic.OutletInUse).updateValue(sensor.isPlaying);
+	sensor.serviceOn.getCharacteristic(Characteristic.OccupancyDetected).updateValue(sensor.isOn);
+	sensor.servicePlaying.getCharacteristic(Characteristic.OccupancyDetected).updateValue(sensor.isPlaying);
 }
 
 Plex.prototype.appBeginListening = function() {
@@ -200,8 +222,8 @@ Plex.prototype.eventHandler = function(event, sensor) {
 
 		sensor.isOn = true;
 		sensor.isPlaying = true;
-		sensor.service.getCharacteristic(Characteristic.On).updateValue(true);
-		sensor.service.getCharacteristic(Characteristic.OutletInUse).updateValue(true);
+		sensor.serviceOn.getCharacteristic(Characteristic.OccupancyDetected).updateValue(sensor.isOn);
+		sensor.servicePlaying.getCharacteristic(Characteristic.OccupancyDetected).updateValue(sensor.isPlaying);
 	} else if (event.event == "media.pause") {
 		// Remove the player from the list of active triggers
 		sensor.activePlayers.delete(event.Player.uuid);
@@ -212,8 +234,8 @@ Plex.prototype.eventHandler = function(event, sensor) {
 
 			sensor.isOn = true;
 			sensor.isPlaying = false;
-			sensor.service.getCharacteristic(Characteristic.On).updateValue(true);
-			sensor.service.getCharacteristic(Characteristic.OutletInUse).updateValue(false);
+			sensor.serviceOn.getCharacteristic(Characteristic.OccupancyDetected).updateValue(sensor.isOn);
+			sensor.servicePlaying.getCharacteristic(Characteristic.OccupancyDetected).updateValue(sensor.isPlaying);
 		}
 	} else if (event.event == "media.stop") {
 		// Remove the player from the list of active triggers
@@ -231,8 +253,8 @@ Plex.prototype.eventHandler = function(event, sensor) {
 
 				sensor.isOn = false;
 				sensor.isPlaying = false;
-				sensor.service.getCharacteristic(Characteristic.On).updateValue(false);
-				sensor.service.getCharacteristic(Characteristic.OutletInUse).updateValue(false);
+				sensor.serviceOn.getCharacteristic(Characteristic.OccupancyDetected).updateValue(sensor.isOn);
+				sensor.servicePlaying.getCharacteristic(Characteristic.OccupancyDetected).updateValue(sensor.isPlaying);
 			}).bind(this)
 
 			if (sensor.delay && sensor.delay > 0) {
